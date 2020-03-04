@@ -1,0 +1,14 @@
+language: node_js
+services: postgresql
+
+node_js:
+  - '10'
+  - '11'
+  - '12'
+  - 'stable'
+
+before_script:
+  - psql -c 'create database temp;'
+
+script:
+  - npm run ci
