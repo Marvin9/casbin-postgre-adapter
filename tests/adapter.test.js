@@ -19,7 +19,10 @@ const basicModal = './config/basic_modal.conf';
 const rbacModal = './config/rbac_modal.conf';
 const rbacRules = './config/rbac_policy.csv';
 
+let executeBeforeEach = false;
+
 beforeEach(async () => {
+  if (!executeBeforeEach) return;
   await pgClient.query(`DELETE FROM ${tableName}`);
 });
 
@@ -39,6 +42,7 @@ test('adapter should properly connected to database', async () => {
   } catch (err) {
     throw new Error(err.message);
   }
+  executeBeforeEach = true;
 });
 
 test('adapter should properly load policy -> loadPolicy()', async () => {
