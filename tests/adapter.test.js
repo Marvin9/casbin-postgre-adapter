@@ -5,6 +5,7 @@ const PostgreAdapter = require('../lib/adapter');
 const {
   createEnforcer,
   isEmptyDatabase,
+  policyToArray,
 } = require('./utils');
 
 const connectionURI = 'postgresql://postgres: @localhost:5432/temp';
@@ -78,23 +79,47 @@ test('adapter should properly store new policies -> loadPolicy() + addPolicy()',
   await enf.getAdapter().close();
 });
 
-/*
 test('adapter should properly store new policy rules from file', async () => {
   const adapter = await PostgreAdapter.newAdapter(connectionURI);
 
   // load rbac policy through file adapter
-  const enforcer = await newEnforcer(rbacModal, rbacRules);
+  let enforcer = await newEnforcer(rbacModal, rbacRules);
 
   // Database is empty
   expect(await isEmptyDatabase(pgClient)).toBeTruthy();
 
   // load that(file adapter's) policy into db adapter
-  expect(await adapter.savePolicy(await enforcer.getModel())).toBeTruthy();
+  await adapter.savePolicy(await enforcer.getModel());
 
-  const csvToJson = await ctoj().fromFile(rbacRules);
-  // db adapter should load, saved policies
-  console.log(csvToJson);
+  const policyArray = policyToArray(rbacRules);
 
-  adapter.close();
+  // Database should contain all saved policies (in this case csvToJson)
+  const policiesInDb = await (await pgClient.query(loadPolicyQuery)).rows;
+
+  policiesInDb.forEach((row, i) => {
+    Object.keys(row).forEach((columnName, j) => {
+      const value = row[columnName];
+      if (value !== null) {
+        expect(value).toBe(policyArray[i][j]);
+      }
+    });
+  });
+
+  await enforcer.clearPolicy();
+  expect(await enforcer.getPolicy()).toStrictEqual([]);
+
+  // adapter contains policy rules of rbac_policy.csv file
+  enforcer = await newEnforcer(rbacModal, adapter);
+
+  const policiesInEnfocer = await enforcer.getPolicy();
+  for (let i = 0, k = 0, iBound = policyArray.length; i < iBound; i += 1) {
+    if (policyArray[i][0] !== 'g') {
+      for (let j = 1, jBound = policyArray[i].length; j < jBound; j += 1) {
+        expect(policyArray[i][j]).toBe(policiesInEnfocer[k][j - 1]);
+      }
+      k += 1;
+    }
+  }
+
+  await adapter.close();
 });
-*/
