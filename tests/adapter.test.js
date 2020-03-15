@@ -20,12 +20,21 @@ const basicModal = './config/basic_modal.conf';
 const rbacModal = './config/rbac_modal.conf';
 const rbacRules = './config/rbac_policy.csv';
 
+let executeBeforeEach = false;
+
 beforeEach(async () => {
-  await pgClient.query(`DELETE FROM ${tableName}`);
+  if (executeBeforeEach) {
+    await pgClient.query(`DELETE FROM ${tableName}`);
+  }
 });
 
 beforeAll(async () => {
   await pgClient.connect();
+
+  // if table exist then delete it.
+  pgClient.query(`SELECT * FROM ${tableName}`, async (err, resp) => {
+    if (resp) await pgClient.query(`DELETE FROM ${tableName}`);
+  });
 });
 
 afterAll(async () => {
@@ -39,6 +48,8 @@ test('adapter should properly load policy -> loadPolicy()', async () => {
 
   // Database also should be clean
   expect(await isEmptyDatabase(pgClient)).toBeTruthy();
+
+  executeBeforeEach = true;
 });
 
 test('adapter should properly store new policies -> loadPolicy() + addPolicy()', async () => {
