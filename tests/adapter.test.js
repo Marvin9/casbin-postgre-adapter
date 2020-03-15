@@ -20,10 +20,7 @@ const basicModal = './config/basic_modal.conf';
 const rbacModal = './config/rbac_modal.conf';
 const rbacRules = './config/rbac_policy.csv';
 
-let executeBeforeEach = false;
-
 beforeEach(async () => {
-  if (!executeBeforeEach) return;
   await pgClient.query(`DELETE FROM ${tableName}`);
 });
 
@@ -35,17 +32,6 @@ afterAll(async () => {
   await pgClient.end();
 });
 
-test('adapter should properly connected to database', async () => {
-  try {
-    const client = new PostgreAdapter(connectionURI);
-    await client.open();
-    await client.close();
-  } catch (err) {
-    throw new Error(err.message);
-  }
-  executeBeforeEach = true;
-});
-
 test('adapter should properly load policy -> loadPolicy()', async () => {
   const enf = await createEnforcer(basicModal);
 
@@ -53,10 +39,6 @@ test('adapter should properly load policy -> loadPolicy()', async () => {
 
   // Database also should be clean
   expect(await isEmptyDatabase(pgClient)).toBeTruthy();
-
-  // Stuck with this issue
-  // If I don't manualy close this, process runs forever
-  await enf.getAdapter().close();
 });
 
 test('adapter should properly store new policies -> loadPolicy() + addPolicy()', async () => {
@@ -75,8 +57,6 @@ test('adapter should properly store new policies -> loadPolicy() + addPolicy()',
   const condition = "p_type='p' AND v0='sub' AND v1='obj' AND v2='act'";
   // database must contain policy added by enforcer
   expect(await (await pgClient.query(`${loadPolicyQuery} WHERE ${condition}`)).rowCount).toBe(1);
-
-  await enf.getAdapter().close();
 });
 
 test('adapter should properly store new policy rules from file', async () => {
@@ -120,6 +100,4 @@ test('adapter should properly store new policy rules from file', async () => {
       k += 1;
     }
   }
-
-  await adapter.close();
 });
