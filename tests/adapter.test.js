@@ -1,6 +1,5 @@
 const { Client } = require('pg');
 const { newEnforcer } = require('casbin');
-const ctoj = require('csvtojson');
 const PostgreAdapter = require('../lib/adapter');
 const {
   createEnforcer,
@@ -14,6 +13,7 @@ const pgClient = new Client(connectionURI);
 const {
   tableName,
   loadPolicyQuery,
+  deleteQuery,
 } = require('../lib/helper/essentialQueries');
 
 const basicModal = './config/basic_modal.conf';
@@ -32,9 +32,10 @@ beforeAll(async () => {
   await pgClient.connect();
 
   // if table exist then delete it.
-  pgClient.query(`SELECT * FROM ${tableName}`, async (err, resp) => {
-    if (resp) await pgClient.query(`DELETE FROM ${tableName}`);
-  });
+  try {
+    await pgClient.query(loadPolicyQuery);
+    await pgClient.query(`DELETE FROM ${tableName}`);
+  } catch (err) { /* if there is error then it is good, becuase no table exist */ }
 });
 
 afterAll(async () => {
@@ -102,13 +103,22 @@ test('adapter should properly store new policy rules from file', async () => {
   // adapter contains policy rules of rbac_policy.csv file
   enforcer = await newEnforcer(rbacModal, adapter);
 
-  const policiesInEnfocer = await enforcer.getPolicy();
-  for (let i = 0, k = 0, iBound = policyArray.length; i < iBound; i += 1) {
-    if (policyArray[i][0] !== 'g') {
-      for (let j = 1, jBound = policyArray[i].length; j < jBound; j += 1) {
-        expect(policyArray[i][j]).toBe(policiesInEnfocer[k][j - 1]);
-      }
-      k += 1;
-    }
-  }
+  let enforcerGetPolicyStore = policyArray.filter((row) => row[0] !== 'g');
+  enforcerGetPolicyStore = enforcerGetPolicyStore.map((row) => row.filter((column) => column !== 'p'));
+  let policiesInEnfocer = await enforcer.getPolicy();
+
+  expect(policiesInEnfocer).toStrictEqual(enforcerGetPolicyStore);
+
+  await adapter.addPolicy('', 'p', ['roles', 'res', 'action']);
+  enforcerGetPolicyStore.push(['roles', 'res', 'action']);
+
+  enforcer = await newEnforcer(rbacModal, adapter);
+  policiesInEnfocer = await enforcer.getPolicy();
+  expect(policiesInEnfocer).toStrictEqual(enforcerGetPolicyStore);
+
+  await adapter.removePolicy('', 'p', ['roles', 'res', 'action']);
+  enforcerGetPolicyStore.pop();
+
+  enforcer = await newEnforcer(rbacModal, adapter);
+  expect(await enforcer.getPolicy()).toStrictEqual(enforcerGetPolicyStore);
 });
