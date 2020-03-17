@@ -1,4 +1,4 @@
-const { Client } = require('pg');
+const { Pool } = require('pg');
 const { newEnforcer } = require('casbin');
 const PostgreAdapter = require('../lib/adapter');
 const {
@@ -8,12 +8,11 @@ const {
 } = require('./utils');
 
 const connectionURI = 'postgresql://postgres: @localhost:5432/temp';
-const pgClient = new Client(connectionURI);
+const pgClient = new Pool({ connectionString: connectionURI });
 
 const {
   tableName,
   loadPolicyQuery,
-  deleteQuery,
 } = require('../lib/helper/essentialQueries');
 
 const basicModal = './config/basic_modal.conf';
@@ -28,17 +27,8 @@ beforeEach(async () => {
   }
 });
 
-beforeAll(async () => {
-  await pgClient.connect();
-
-  // if table exist then delete it.
-  try {
-    await pgClient.query(loadPolicyQuery);
-    await pgClient.query(`DELETE FROM ${tableName}`);
-  } catch (err) { /* if there is error then it is good, becuase no table exist */ }
-});
-
 afterAll(async () => {
+  await pgClient.query(`DELETE FROM ${tableName}`);
   await pgClient.end();
 });
 
@@ -51,6 +41,8 @@ test('adapter should properly load policy -> loadPolicy()', async () => {
   expect(await isEmptyDatabase(pgClient)).toBeTruthy();
 
   executeBeforeEach = true;
+
+  await enf.getAdapter().pool.end();
 });
 
 test('adapter should properly store new policies -> loadPolicy() + addPolicy()', async () => {
@@ -69,6 +61,8 @@ test('adapter should properly store new policies -> loadPolicy() + addPolicy()',
   const condition = "p_type='p' AND v0='sub' AND v1='obj' AND v2='act'";
   // database must contain policy added by enforcer
   expect(await (await pgClient.query(`${loadPolicyQuery} WHERE ${condition}`)).rowCount).toBe(1);
+
+  await enf.getAdapter().pool.end();
 });
 
 test('adapter should properly store new policy rules from file', async () => {
@@ -121,4 +115,6 @@ test('adapter should properly store new policy rules from file', async () => {
 
   enforcer = await newEnforcer(rbacModal, adapter);
   expect(await enforcer.getPolicy()).toStrictEqual(enforcerGetPolicyStore);
+
+  await adapter.pool.end();
 });
