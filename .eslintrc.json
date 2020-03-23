@@ -15,7 +15,10 @@
     "parserOptions": {
         "ecmaVersion": 2018
     },
-    "plugins": ["jest"],
+    "plugins": [
+      "jest",
+      "@typescript-eslint"
+    ],
     "overrides": [
       {
         "files":["tests/*.js"],

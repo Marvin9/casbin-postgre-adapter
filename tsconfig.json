@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "removeComments": true,
+    "rootDir": "lib",
+    "outDir": "build"
+  },
+  "include": ["lib/**/*.ts"],
+  "exclude": ["node_modules/**"]
+}
