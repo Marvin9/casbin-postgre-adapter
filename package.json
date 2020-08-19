@@ -18,6 +18,8 @@
   "author": "mayursinh",
   "license": "MIT",
   "devDependencies": {
+    "@types/jest": "^26.0.10",
+    "@types/pg": "^7.14.4",
     "@typescript-eslint/eslint-plugin": "^2.24.0",
     "csvtojson": "^2.0.10",
     "eslint": "^6.8.0",
@@ -25,6 +27,7 @@
     "eslint-plugin-import": "^2.20.1",
     "eslint-plugin-jest": "^23.8.1",
     "jest": "^25.1.0",
+    "ts-jest": "^26.2.0",
     "typescript": "^3.8.3"
   },
   "dependencies": {

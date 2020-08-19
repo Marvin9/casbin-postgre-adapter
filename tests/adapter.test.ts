@@ -1,34 +1,25 @@
-const { Pool } = require('pg');
-const { newEnforcer } = require('casbin');
-const PostgreAdapter = require('../lib/adapter');
-const {
-  createEnforcer,
-  isEmptyDatabase,
-  policyToArray,
-} = require('./utils');
+import { Pool } from 'pg';
+import { newEnforcer } from 'casbin';
+import { PostgreAdapter } from '../lib/adapter';
+import { connectionURI, createEnforcer, isEmptyDatabase, policyToArray } from './utils';
+import queries from '../lib/helper/essentialQueries';
 
-const connectionURI = 'postgresql://postgres: @localhost:5432/temp';
 const pgClient = new Pool({ connectionString: connectionURI });
 
-const {
-  tableName,
-  loadPolicyQuery,
-} = require('../lib/helper/essentialQueries');
-
-const basicModal = './config/basic_modal.conf';
-const rbacModal = './config/rbac_modal.conf';
-const rbacRules = './config/rbac_policy.csv';
+const basicModal = './tests/fixtures/basic_modal.conf';
+const rbacModal = './tests/fixtures/rbac_modal.conf';
+const rbacRules = './tests/fixtures/rbac_policy.csv';
 
 let executeBeforeEach = false;
 
 beforeEach(async () => {
   if (executeBeforeEach) {
-    await pgClient.query(`DELETE FROM ${tableName}`);
+    await pgClient.query(`DELETE FROM ${queries.tableName}`);
   }
 });
 
 afterAll(async () => {
-  await pgClient.query(`DELETE FROM ${tableName}`);
+  await pgClient.query(`DELETE FROM ${queries.tableName}`);
   await pgClient.end();
 });
 
@@ -42,7 +33,7 @@ test('adapter should properly load policy -> loadPolicy()', async () => {
 
   executeBeforeEach = true;
 
-  await enf.getAdapter().pool.end();
+  await (enf.getAdapter() as PostgreAdapter).closePool();
 });
 
 test('adapter should properly store new policies -> loadPolicy() + addPolicy()', async () => {
@@ -60,9 +51,9 @@ test('adapter should properly store new policies -> loadPolicy() + addPolicy()',
 
   const condition = "p_type='p' AND v0='sub' AND v1='obj' AND v2='act'";
   // database must contain policy added by enforcer
-  expect(await (await pgClient.query(`${loadPolicyQuery} WHERE ${condition}`)).rowCount).toBe(1);
+  expect(await (await pgClient.query(`${queries.loadPolicyQuery} WHERE ${condition}`)).rowCount).toBe(1);
 
-  await enf.getAdapter().pool.end();
+  await (enf.getAdapter() as PostgreAdapter).closePool();
 });
 
 test('adapter should properly store new policy rules from file', async () => {
@@ -80,7 +71,7 @@ test('adapter should properly store new policy rules from file', async () => {
   const policyArray = policyToArray(rbacRules);
 
   // Database should contain all saved policies (in this case csvToJson)
-  const policiesInDb = await (await pgClient.query(loadPolicyQuery)).rows;
+  const policiesInDb = await (await pgClient.query(queries.loadPolicyQuery)).rows;
 
   policiesInDb.forEach((row, i) => {
     Object.keys(row).forEach((columnName, j) => {
@@ -116,5 +107,5 @@ test('adapter should properly store new policy rules from file', async () => {
   enforcer = await newEnforcer(rbacModal, adapter);
   expect(await enforcer.getPolicy()).toStrictEqual(enforcerGetPolicyStore);
 
-  await adapter.pool.end();
+  await adapter.closePool();
 });

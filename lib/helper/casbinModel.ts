@@ -11,4 +11,4 @@ const COLUMNS = [
   `v5 ${VERSIONS_TYPE}`,
 ];
 
-module.exports = COLUMNS.join(', ');
+export default COLUMNS.join(', ');

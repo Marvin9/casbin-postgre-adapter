@@ -1,17 +1,18 @@
-const casbinModel = require('./casbinModel');
+import casbinModel from './casbinModel';
+import { PostgreModel } from '../adapter';
 
 const tableName = '__casbin_policy';
 
-module.exports = {
+export default {
   tableName,
   createTableIfNotExist: `CREATE TABLE IF NOT EXISTS ${tableName} (${casbinModel})`,
   loadPolicyQuery: `SELECT * FROM ${tableName}`,
-  insertQuery: (obj) => {
+  insertQuery: (obj: PostgreModel): string => {
     let insertTypes = '';
     let insertValues = '';
 
     Object.keys(obj).forEach((type) => {
-      if (type === 'ptype') {
+      if (type === 'p_type') {
         insertTypes += 'p_type';
         insertValues += `'${obj[type]}'`;
       } else {
@@ -23,12 +24,12 @@ module.exports = {
     const query = `INSERT INTO ${tableName} (${insertTypes}) VALUES (${insertValues})`;
     return query;
   },
-  deleteQuery: (obj) => {
+  deleteQuery: (obj: PostgreModel): string => {
     const keyValue = [];
 
     Object.keys(obj).forEach((columnName) => {
       let pair;
-      if (columnName === 'ptype') pair = `p_type='${obj[columnName]}'`;
+      if (columnName === 'p_type') pair = `p_type='${obj[columnName]}'`;
       else pair = `${columnName}='${obj[columnName]}'`;
       keyValue.push(pair);
     });

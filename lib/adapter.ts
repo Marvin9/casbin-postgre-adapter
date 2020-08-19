@@ -1,35 +1,36 @@
-const { Helper } = require('casbin');
-const { Pool } = require('pg');
+import { Adapter, Model, Helper } from 'casbin';
+import { Pool, QueryResult } from 'pg';
 
-const {
-  createTableIfNotExist,
-  loadPolicyQuery,
-  insertQuery,
-  deleteQuery,
-} = require('./helper/essentialQueries');
+import queries from './helper/essentialQueries';
 
-/**
- * @typedef PostgreModel
- * @type {object}
- * @property {string} p_type
- * @property {?string} v0
- * @property {?string} v1
- * @property {?string} v2
- * @property {?string} v3
- * @property {?string} v4
- * @property {?string} v5
- */
+type Versions = {
+  v0?: string;
+  v1?: string;
+  v2?: string;
+  v3?: string;
+  v4?: string;
+  v5?: string;
+};
+
+export interface PostgreModel extends Versions {
+  p_type: string;
+}
 
 /**
  * PostgreAdapter
  */
-class PostgreAdapter {
+export class PostgreAdapter implements Adapter {
+  private connectionURI: string;
+  private pool: Pool;
+  private postgreClient: null;
+  private checkIfTableExist: boolean;
+
   /**
    *
    * @param {string} connectionURI
    * https://www.postgresql.org/docs/9.3/libpq-connect.html#AEN39692
    */
-  constructor(connectionURI) {
+  constructor(connectionURI: string) {
     // TODO -> validation for connectionURI
     try {
       this.connectionURI = connectionURI;
@@ -46,7 +47,7 @@ class PostgreAdapter {
    * @param {string} connectionURI
    * @returns {Object} returns connected adapter.
    */
-  static async newAdapter(connectionURI) {
+  static async newAdapter(connectionURI: string) {
     // TODO -> validation of connectionURI
     const adapter = new PostgreAdapter(connectionURI);
     // await adapter.open();
@@ -59,7 +60,7 @@ class PostgreAdapter {
    * @returns {string} -> if @v is not empty, it appends comma and space to @v
    */
   // eslint-disable-next-line class-methods-use-this
-  addToText(v) {
+  addToText(v: string): string {
     if (v) return `, ${v}`;
     return '';
   }
@@ -70,7 +71,7 @@ class PostgreAdapter {
    * @param {Object} model
    * @returns {void}
    */
-  loadPolicyLine(line, model) {
+  loadPolicyLine(line: PostgreModel, model: Model) {
     let text = line.p_type; // text -> 'p' (for example)
 
     const toBeAdd = [line.v0, line.v1, line.v2, line.v3, line.v4, line.v5];
@@ -88,8 +89,8 @@ class PostgreAdapter {
    * @param {Object} model
    * @returns {void}
    */
-  async loadPolicy(model) {
-    const lines = await this.query(loadPolicyQuery);
+  async loadPolicy(model: Model) {
+    const lines = await this.query(queries.loadPolicyQuery);
     lines.rows.forEach((line) => {
       this.loadPolicyLine(line, model);
     });
@@ -102,9 +103,9 @@ class PostgreAdapter {
    * @returns {PostgreModel}
    */
   // eslint-disable-next-line class-methods-use-this
-  savePolicyLine(ptype, rule) {
+  savePolicyLine(ptype: string, rule: string[]): PostgreModel {
     // model -> { ptype: 'p' }
-    const model = { ptype };
+    const model = { p_type: ptype };
 
     const assign = ['v0', 'v1', 'v2', 'v3', 'v4', 'v5'];
     let i = 0;
@@ -126,7 +127,7 @@ class PostgreAdapter {
    *
    * @param {Object} model
    */
-  async savePolicy(model) {
+  async savePolicy(model: Model): Promise<boolean> {
     const policyRule = model.model.get('p');
     const groupPolicy = model.model.get('g');
 
@@ -136,7 +137,7 @@ class PostgreAdapter {
     policyRule.forEach((rule) => {
       const ast = rule;
       ast.policy.forEach(async (policy) => {
-        generatedInsertQuery = insertQuery(this.savePolicyLine(rule.key, policy));
+        generatedInsertQuery = queries.insertQuery(this.savePolicyLine(rule.key, policy));
         bulkInsert.push(generatedInsertQuery);
       });
     });
@@ -144,22 +145,32 @@ class PostgreAdapter {
     groupPolicy.forEach((rule) => {
       const ast = rule;
       ast.policy.forEach(async (policy) => {
-        generatedInsertQuery = insertQuery(this.savePolicyLine(rule.key, policy));
+        generatedInsertQuery = queries.insertQuery(this.savePolicyLine(rule.key, policy));
         bulkInsert.push(generatedInsertQuery);
       });
     });
 
-    await this.query(bulkInsert.join(';'));
+    try {
+      await this.query(bulkInsert.join(';'));
+    } catch (e) {
+      return false;
+    }
+
+    return true;
   }
 
-  async addPolicy(sec, ptype, rule) {
-    const query = insertQuery(this.savePolicyLine(ptype, rule));
+  async addPolicy(sec: string, ptype: string, rule: string[]) {
+    const query = queries.insertQuery(this.savePolicyLine(ptype, rule));
     await this.query(query);
   }
 
-  async removePolicy(sec, ptype, rule) {
-    const query = deleteQuery(this.savePolicyLine(ptype, rule));
+  async removePolicy(sec: string, ptype: string, rule: string[]) {
+    const query = queries.deleteQuery(this.savePolicyLine(ptype, rule));
     await this.query(query);
+  }
+
+  async removeFilteredPolicy() {
+
   }
 
   /**
@@ -167,11 +178,11 @@ class PostgreAdapter {
    * @param {string} qry a query to be executed on database.
    * @returns {Array.<Array.<string>> | boolean}
    */
-  async query(qry) {
+  async query(qry: string): Promise<QueryResult<any>> {
     let output;
     try {
       if (!this.checkIfTableExist) {
-        await this.pool.query(createTableIfNotExist);
+        await this.pool.query(queries.createTableIfNotExist);
         this.checkIfTableExist = true;
       }
       output = await this.pool.query(qry);
@@ -180,6 +191,10 @@ class PostgreAdapter {
     }
     return output;
   }
+
+  async closePool() {
+    await this.pool.end();
+  }
 }
 
-module.exports = PostgreAdapter;
+export default PostgreAdapter;
