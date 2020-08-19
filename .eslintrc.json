@@ -5,9 +5,7 @@
         "es6": true,
         "jest": true
     },
-    "extends": [
-        "airbnb-base"
-    ],
+    "extends": ["airbnb-base", "plugin:@typescript-eslint/recommended", "prettier/@typescript-eslint", "plugin:prettier/recommended"],
     "globals": {
         "Atomics": "readonly",
         "SharedArrayBuffer": "readonly"
@@ -15,16 +13,21 @@
     "parserOptions": {
         "ecmaVersion": 2018
     },
-    "plugins": [
-      "jest",
-      "@typescript-eslint"
-    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["jest", "@typescript-eslint"],
     "overrides": [
-      {
-        "files":["tests/*.js"],
-        "rules": {
-          "no-unused-vars":"off"
+        {
+            "files": ["tests/*.js"],
+            "rules": {
+                "no-unused-vars": "off"
+            }
         }
-      }
-    ]
+    ],
+    "rules": {
+        "import/extensions": "off",
+        "import/no-unresolved": "off",
+        "prettier/prettier": "off",
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/camelcase": "off"
+    }
 }
