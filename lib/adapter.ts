@@ -173,7 +173,24 @@ export class PostgreAdapter implements Adapter {
     }
 
     // eslint-disable-next-line class-methods-use-this, @typescript-eslint/no-empty-function
-    async removeFilteredPolicy() {}
+    async removeFilteredPolicy(
+        sec: string,
+        ptype: string,
+        fieldIndex: number,
+        ...fieldValues: string[]
+    ) {
+        const line: PostgreModel = { p_type: ptype };
+
+        const idx = fieldIndex + fieldValues.length;
+        const totalV = 5;
+        for (let i = 0; i <= totalV; i += 1) {
+            if (fieldIndex <= i && idx > i) {
+                line[`v${i}`] = fieldValues[i - fieldIndex];
+            }
+        }
+
+        await this.query(queries.deleteQuery(line));
+    }
 
     /**
      * ->
